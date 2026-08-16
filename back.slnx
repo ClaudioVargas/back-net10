@@ -1,4 +1,3 @@
 <Solution>
-  <Project Path="../TestBack/TestBack.csproj" Id="b0c4612a-1602-421d-a41e-2a789e441526" />
   <Project Path="back.csproj" />
 </Solution>

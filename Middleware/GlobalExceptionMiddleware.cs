@@ -1,42 +1,57 @@
 ﻿using System.Net;
 using System.Text.Json;
 
-namespace back.Middleware
+namespace back.Middleware;
+
+public sealed class GlobalExceptionMiddleware
 {
-    public class GlobalExceptionMiddleware
+    private readonly RequestDelegate _next;
+    private readonly ILogger<GlobalExceptionMiddleware> _logger;
+
+    public GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
     {
-        private readonly RequestDelegate _next;
+        _next = next;
+        _logger = logger;
+    }
 
-        public GlobalExceptionMiddleware(RequestDelegate next)
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
         {
-            _next = next;
+            await _next(context);
         }
-
-        public async Task InvokeAsync(HttpContext context)
+        catch (Exception ex)
         {
-            try
-            {
-                await _next(context); // continuar con la cadena de middlewares
-            }
-            catch (Exception ex)
-            {
-                await HandleExceptionAsync(context, ex);
-            }
+            await HandleExceptionAsync(context, ex);
         }
+    }
 
-        private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {
+        _logger.LogError(exception, "Unhandled exception for path {Path}", context.Request.Path);
+
+        var statusCode = exception switch
         {
-            var response = new
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = "Ocurrió un error inesperado por claudio.",
-                Detail = exception.Message // opcional: quitar en producción
-            };
+            ArgumentException => (int)HttpStatusCode.BadRequest,
+            KeyNotFoundException => (int)HttpStatusCode.NotFound,
+            InvalidOperationException => (int)HttpStatusCode.Conflict,
+            _ => (int)HttpStatusCode.InternalServerError
+        };
 
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        var response = new
+        {
+            success = false,
+            statusCode,
+            message = statusCode == (int)HttpStatusCode.InternalServerError
+                ? "Ocurrió un error inesperado."
+                : exception.Message,
+            detail = statusCode == (int)HttpStatusCode.InternalServerError ? exception.Message : null
+        };
 
-            return context.Response.WriteAsync(JsonSerializer.Serialize(response));
-        }
+        context.Response.Clear();
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = statusCode;
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
 }

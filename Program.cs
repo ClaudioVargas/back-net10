@@ -1,15 +1,38 @@
 using back.Core.Interfaces;
+using back.Filters;
 using back.Middleware;
 using back.Repositories;
+using back.Security;
 using back.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RequestLoggingActionFilter>();
+    options.Filters.Add(new AuthorizeFilter("ApiKeyPolicy"));
+});
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = "ApiKey";
+    options.DefaultChallengeScheme = "ApiKey";
+})
+.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", _ => { });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ApiKeyPolicy", policy =>
+    {
+        policy.AddAuthenticationSchemes("ApiKey");
+        policy.RequireAuthenticatedUser();
+    });
+});
+
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<ContactoRepository>();
 
@@ -18,24 +41,19 @@ builder.Services.AddScoped<IContactoRepository, ContactoRepository>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-    app.UseSwaggerUI(options =>
+    app.MapScalarApiReference(options =>
     {
-        // 3. Mapea la interfaz visual moderna de Scalar apuntando al JSON nativo
-        app.MapScalarApiReference(options =>
-        {
-            options.WithTitle("Mi API Moderna en .NET 10")
-                .WithTheme(ScalarTheme.DeepSpace); // Elige tu tema preferido
-        });
+        options.WithTitle("Mi API Moderna en .NET 10")
+            .WithTheme(ScalarTheme.DeepSpace);
     });
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

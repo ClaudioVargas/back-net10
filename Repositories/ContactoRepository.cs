@@ -25,7 +25,6 @@ namespace back.Repositories
 
         public async Task<Contacto?> Add(Contacto contacto)
         {
-
             var existe = await isDuplicado(contacto.Telefono);
             if (!existe)
             {
@@ -40,9 +39,8 @@ namespace back.Repositories
                 _contactos.TryAdd(nuevoId, nuevoContacto);
                 return nuevoContacto;
             }
-            else {
-                return null;
-            }
+
+            return null;
         }
 
         public async Task<bool> Update(Contacto contacto)
@@ -66,12 +64,21 @@ namespace back.Repositories
             return await Task.FromResult(false);
         }
 
-        public async Task<bool> isDuplicado(string phone)
+        public async Task<bool> isDuplicado(string? phone)
         {
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                return await Task.FromResult(false);
+            }
+
             foreach (var item in _contactos.Values)
             {
-                if (item.Telefono.Equals(phone)) return await Task.FromResult(true);
+                if (item.Telefono != null && item.Telefono.Equals(phone, StringComparison.Ordinal))
+                {
+                    return await Task.FromResult(true);
+                }
             }
+
             return await Task.FromResult(false);
         }
     }
