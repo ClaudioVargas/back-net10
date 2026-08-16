@@ -1,34 +1,52 @@
+using System.Text;
 using back.Core.Interfaces;
 using back.Filters;
 using back.Middleware;
 using back.Repositories;
-using back.Security;
 using back.Services;
-using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var issuer = jwtSettings["Issuer"] ?? "back-api";
+var audience = jwtSettings["Audience"] ?? "back-clients";
+var secretKey = jwtSettings["SecretKey"] ?? "ThisIsAReallyLongSecretKeyForLocalDevelopment123!";
+
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<RequestLoggingActionFilter>();
-    options.Filters.Add(new AuthorizeFilter("ApiKeyPolicy"));
+    options.Filters.Add(new AuthorizeFilter("JwtPolicy"));
 });
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = "ApiKey";
-    options.DefaultChallengeScheme = "ApiKey";
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", _ => { });
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = issuer,
+        ValidAudience = audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("ApiKeyPolicy", policy =>
+    options.AddPolicy("JwtPolicy", policy =>
     {
-        policy.AddAuthenticationSchemes("ApiKey");
         policy.RequireAuthenticatedUser();
     });
 });
