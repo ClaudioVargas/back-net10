@@ -1,93 +1,358 @@
-# 🚀 ProyectoSuperAPI (.NET 10)
+# Back API - JWT, Roles, SQLite, Interceptores y Manejo Global de Errores
 
-[![.NET Version](https://shields.io)](https://dotnet.microsoft.com/)
-[![Build Status](https://github.com)](https://github.com)
-[![License: MIT](https://shields.io)](LICENSE)
+API REST en .NET 10 con autenticación JWT, autorización por roles, SQLite, logging global, middleware de errores, interceptores y CRUD de contactos.
 
-> Web API de ejemplo construida con .NET 10. Proyecto porfatolios para demostrar conocimientos en desarrollo backend moderno, el proyecto contiene un CRUD de contacto con sus responsabilidades correctamente separadas
----
+## Tabla de contenido
 
-## 📋 Tabla de Contenidos
+- [Descripción general](#descripción-general)
+- [Tecnologías](#tecnologías)
+- [Requisitos previos](#requisitos-previos)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Configuración](#configuración)
+- [Instalación](#instalación)
+- [Ejecución](#ejecución)
+- [Endpoints principales](#endpoints-principales)
+- [Autenticación y autorización](#autenticación-y-autorización)
+- [Base de datos](#base-de-datos)
+- [Manejo de errores y logging](#manejo-de-errores-y-logging)
+- [Ejemplos de uso](#ejemplos-de-uso)
+- [Licencia](#licencia)
 
-- [Características](#-caracteristicas)
-- [Prerrequisitos](#-prerrequisitos)
-- [Instalación y Configuración](#-instalación-y-configuración)
-- [Ejecución](#-ejecución)
-- [Licencia](#-licencia)
-- [Parte de la pauta cubierta](#-parte-de-la-pauta-cubierta)
+## Descripción general
 
----
+Este proyecto es una API backend en .NET 10 pensada para demostrar buenas prácticas en:
 
-## ✨ Características
+- autenticación con JWT
+- autorización por roles
+- manejo global de excepciones
+- filtros globales para logging y trazabilidad
+- SQLite como almacenamiento de usuarios
+- arquitectura por capas con controllers, services, repositories y models
+- seguridad con claims y policies
+- CRUD de contactos con separación de responsabilidades
 
-*   ⚡ **.NET 10 & C# 14:** Aprovecha las últimas mejoras de rendimiento y sintaxis.
-*   🚀 **Minimal APIs:** Estructura ligera y rápida.
-*   📊 **Entity Framework Core 10:**.
-*   🧪 **Unit Testing:** Cobertura de pruebas con MSTest.
+Incluye:
 
----
+- login y signup de usuarios
+- generación de token JWT
+- claim de role en el token
+- endpoint admin-only
+- middleware global para errores
+- filtro global para trazabilidad de requests
+- SQLite con EF Core
+- base de datos creada automáticamente en desarrollo
 
-## 🛠️ Prerrequisitos
+## Tecnologías
 
-Para ejecutar este proyecto, necesitas:
+- .NET 10
+- C# 14
+- ASP.NET Core Web API
+- Entity Framework Core
+- SQLite
+- JWT Bearer Authentication
+- ASP.NET Core Authorization Policies
+- Scalar API docs
+- Dependency Injection
+- LINQ / EF Core
 
-1.  **[.NET 10 SDK](https://microsoft.com)** instalado.
-2.  **IDE:** Visual Studio 2022 (17.12+), VS Code, o JetBrains Rider.
+## Requisitos previos
 
----
+Necesitas tener instalado:
 
-## 🚀 Instalación y Configuración
+1. .NET 10 SDK
+2. Visual Studio 2022 / VS Code / Rider
+3. Git
 
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone https://github.com/ClaudioVargas/PruebaTecnicaCarsales.git
-    cd PruebaTecnicaCarsales/back
-    ```
+## Estructura del proyecto
 
-2.  **Restaurar dependencias:**
-    ```bash
-    dotnet restore
-    ```
+```text
+back/
+├── Controllers/
+│   ├── AuthController.cs
+│   └── ContactoController.cs
+├── Core/
+│   ├── Interfaces/
+│   │   ├── IContactoRepository.cs
+│   │   ├── IContactoService.cs
+│   │   └── IUserRepository.cs
+│   └── Models/
+│       ├── Contacto.cs
+│       ├── LoginRequest.cs
+│       ├── RegisterRequest.cs
+│       ├── User.cs
+│       └── UserRole.cs
+├── Data/
+│   └── AppDbContext.cs
+├── Filters/
+│   └── RequestLoggingActionFilter.cs
+├── Middleware/
+│   └── GlobalExceptionMiddleware.cs
+├── Repositories/
+│   ├── ContactoRepository.cs
+│   └── UserRepository.cs
+├── Services/
+│   └── ContactoService.cs
+├── app.db
+├── appsettings.json
+├── back.csproj
+├── Program.cs
+├── README.md
+└── back.http
+```
 
----
+## Configuración
 
-## 💻 Ejecución
+El proyecto usa `appsettings.json` para configurar:
 
-### Desde la línea de comandos
+```json
+{
+ "ConnectionStrings": {
+   "DefaultConnection": "Data Source=app.db"
+ },
+ "JwtSettings": {
+   "Issuer": "back-api",
+   "Audience": "back-clients",
+   "SecretKey": "ThisIsAReallyLongSecretKeyForLocalDevelopment123!"
+ }
+}
+```
+
+### JwtSettings
+
+- `Issuer`: emisor del token
+- `Audience`: audiencia esperada del token
+- `SecretKey`: clave de firma HMAC para JWT
+
+## Instalación
+
+```bash
+git clone <repo-url>
+cd <carpeta-del-proyecto>
+dotnet restore
+```
+
+## Ejecución
+
+Desde la raíz del proyecto:
+
 ```bash
 dotnet run
 ```
 
+La API queda disponible en:
 
-La API estará disponible en `http://localhost:5074/swagger/index.html`.
-Tambien se puede probar desde el archivo back.http dando click "Enviar Solicitud" en cada endpoint, donde ya vienen con datos de prueba
+- http://localhost:5234
+- OpenAPI / Scalar en el entorno de desarrollo
+
+## Endpoints principales
+
+### Auth
+
+#### Signup
+```http
+POST /api/auth/signup
+Content-Type: application/json
+```
+
+Body ejemplo:
+```json
+{
+ "name": "Ana",
+ "email": "ana@demo.com",
+ "password": "P@ssw0rd123"
+}
+```
+
+#### Login
+```http
+POST /api/auth/login
+Content-Type: application/json
+```
+
+Body ejemplo:
+```json
+{
+ "email": "ana@demo.com",
+ "password": "P@ssw0rd123"
+}
+```
+
+Respuesta:
+```json
+{
+ "success": true,
+ "token": "eyJ...",
+ "expiresAt": "2026-08-16T20:03:54Z",
+ "user": "ana@demo.com",
+ "role": "User"
+}
+```
+
+#### Admin check
+```http
+GET /api/auth/admin-check
+Authorization: Bearer <token>
+```
+
+Solo disponible para usuarios con rol `Admin`.
+
+### Contactos
+
+```http
+GET /api/contacto
+GET /api/contacto/{id}
+POST /api/contacto
+PUT /api/contacto/{id}
+DELETE /api/contacto/{id}
+```
+
+Todos los endpoints de contactos están protegidos con JWT por política global.
+
+## Autenticación y autorización
+
+### JWT
+
+Se configura en `Program.cs` con `AddAuthentication` y `AddJwtBearer`.
+
+Se valida:
+
+- issuer
+- audience
+- expiración del token
+- firma digital
+
+### Roles
+
+Se usa el claim `ClaimTypes.Role`.
+
+Los roles soportados son:
+
+- `User`
+- `Admin`
+
+### Política global
+
+La API aplica un filtro global de autorización por defecto.
+
+Se define en `Program.cs`:
+
+```csharp
+builder.Services.AddAuthorization(options =>
+{
+   options.AddPolicy("JwtPolicy", policy =>
+   {
+       policy.RequireAuthenticatedUser();
+   });
+
+   options.AddPolicy("AdminOnly", policy =>
+   {
+       policy.RequireAuthenticatedUser();
+       policy.RequireRole(nameof(UserRole.Admin));
+   });
+});
+```
+
+Además, el login y signup son públicos con `[AllowAnonymous]`.
+
+## Base de datos
+
+El proyecto usa SQLite para almacenar usuarios.
+
+### Configuración
+
+En `appsettings.json`:
+
+```json
+"ConnectionStrings": {
+ "DefaultConnection": "Data Source=app.db"
+}
+```
+
+### DbContext
+
+Archivo: `Data/AppDbContext.cs`
+
+Define la tabla `Users` con:
+
+- Id GUID
+- Name
+- Email
+- PasswordHash
+- Role
+- CreatedAt
+- unique index en Email
+
+### Seed de admin
+
+Se crea automáticamente un usuario administrador en desarrollo:
+
+- email: `admin@demo.com`
+- password: `P@ssw0rd`
+- role: `Admin`
+
+## Manejo de errores y logging
+
+### Middleware global
+
+Archivo: `Middleware/GlobalExceptionMiddleware.cs`
+
+Captura excepciones no controladas y devuelve un JSON estructurado con:
+
+- success
+- statusCode
+- message
+- detail (solo en algunos casos)
+
+### Filtro global de requests
+
+Archivo: `Filters/RequestLoggingActionFilter.cs`
+
+Registra cada request con:
+
+- método HTTP
+- ruta
+- duración
+- status code
+- request id
+
+También agrega headers:
+
+- `X-Request-Id`
+- `X-Response-Time-ms`
+
+## Ejemplos de uso
+
+### Login admin
+```bash
+curl -X POST http://localhost:5234/api/auth/login \
+ -H "Content-Type: application/json" \
+ -d '{"email":"admin@demo.com","password":"P@ssw0rd"}'
+```
+
+### Signup nuevo usuario
+```bash
+curl -X POST http://localhost:5234/api/auth/signup \
+ -H "Content-Type: application/json" \
+ -d '{"name":"Ana","email":"ana@demo.com","password":"P@ssw0rd123"}'
+```
+
+### Obtener contactos con token
+```bash
+curl http://localhost:5234/api/contacto \
+ -H "Authorization: Bearer <TOKEN>"
+```
+
+### Admin only
+```bash
+curl http://localhost:5234/api/auth/admin-check \
+ -H "Authorization: Bearer <TOKEN>"
+```
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT.
 
 ---
 
-
-## 📄 Licencia
-
-Este proyecto está licenciado bajo la licencia MIT. Consulta el archivo `LICENSE` para más detalles.
-
----
-*Hecho con ❤️ en .NET 10*
-
-##  Parte de la pauta cubierta
-*   Agregar validaciones obligatorias en Contacto para que Nombre y Teléfono no acepten valores nulos, vacíos o solo espacios.
-*   Validar en POST /api/contacto que no exista ya otro contacto con el mismo teléfono.
-*   Cambiar el POST para que responda con 201 Created y devuelva el recurso creado o su ubicación.
-*   Devolver 400 Bad Request cuando el payload sea inválido.
-*   Devolver 409 Conflict cuando se intente crear un contacto duplicado por teléfono.
-*   Hacer que GET /api/contacto retorne siempre una colección, incluso vacía, en vez de Ok() sin cuerpo.
-*   Separar mejor responsabilidades creando una capa Service entre controller y repository.
-*   Inyectar la interfaz IContactoRepository en el controlador, no la implementación concreta.
-*   Registrar la interfaz en DI, por ejemplo AddSingleton<IContactoRepository, ContactoRepository>().
-*   Resolver la concurrencia del almacenamiento en memoria para evitar carreras al crear contactos en *     paralelo.
-*   Proteger la generación de Id y la escritura de la colección con una estrategia thread-safe.
-*   Agregar al menos 1 test unitario para reglas como validación o duplicados.
-*   Agregar al menos 1 test de integración para endpoints HTTP.
-*   Verificar que OpenAPI quede realmente accesible y, si es posible, habilitar Swagger UI para facilitar la prueba manual.
-*   Alinear el README del backend con la solución real, incluyendo versión requerida del SDK, pasos de *   ejecución, URL base y ejemplos de endpoints.
-*   Corregir la inconsistencia entre el README que pide .NET 8 y el proyecto que apunta a net10.0.
-*   Como mejora de puntaje, implementar middleware global de errores.
+Hecho con .NET 10 y ASP.NET Core.
 
